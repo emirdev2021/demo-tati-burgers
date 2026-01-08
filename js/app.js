@@ -181,27 +181,38 @@ function cambiarCantidad(delta) {
 }
 
 function calcularTotalOpciones() {
+    // GUARDIA DE SEGURIDAD: Si no hay producto, salimos
+    if (!productoSeleccionadoTemp) return;
+
     let totalAdicional = 0;
     
     // Sumar Variantes
     const varianteSeleccionada = document.querySelector('input[name="variante"]:checked');
     if (varianteSeleccionada) {
         const index = varianteSeleccionada.value;
-        totalAdicional += productoSeleccionadoTemp.opciones.items[index].precio;
+        // VALIDACION: Usamos ?. para evitar errores si items no existe
+        const item = productoSeleccionadoTemp.opciones?.items?.[index];
+        if (item) {
+            totalAdicional += item.precio;
+        }
     }
 
     // Sumar Extras
     const extrasSeleccionados = document.querySelectorAll('input[name="extra"]:checked');
     extrasSeleccionados.forEach(chk => {
         const index = chk.value;
-        totalAdicional += productoSeleccionadoTemp.opciones.extras[index].precio;
+        // VALIDACION: Verificamos que el extra exista
+        const extra = productoSeleccionadoTemp.opciones?.extras?.[index];
+        if (extra) {
+            totalAdicional += extra.precio;
+        }
     });
 
     // Calcular Cantidad
     const contador = document.getElementById('contador-cantidad');
     let cantidad = 1;
     if (contador) {
-        cantidad = parseInt(contador.innerText);
+        cantidad = parseInt(contador.innerText) || 1;
     }
 
     // Calculamos el precio total de este pedido específico
@@ -210,10 +221,19 @@ function calcularTotalOpciones() {
     const precioTotalLote = precioUnitarioFinal * cantidad;
 
     // Mostramos el total en el botón verde del modal
-    document.getElementById('modal-precio-adicional').innerText = `$${precioTotalLote}`;
+    const botonPrecio = document.getElementById('modal-precio-adicional');
+    if(botonPrecio) {
+        botonPrecio.innerText = `$${precioTotalLote}`;
+    }
 }
 
 function confirmarOpciones() {
+    // GUARDIA DE SEGURIDAD:
+    if (!productoSeleccionadoTemp) {
+        console.error("No hay producto seleccionado");
+        return;
+    }
+
     let precioUnitarioFinal = productoSeleccionadoTemp.precio;
     let detallesNombre = [];
     let cantidad = 1;
@@ -221,26 +241,35 @@ function confirmarOpciones() {
     // 1. Procesar Variante
     const varianteSeleccionada = document.querySelector('input[name="variante"]:checked');
     if (varianteSeleccionada) {
-        const item = productoSeleccionadoTemp.opciones.items[varianteSeleccionada.value];
-        precioUnitarioFinal += item.precio;
-        // Solo agregamos al nombre si no es la opción "Simple" o "Base"
-        if (item.precio > 0 || item.nombre !== "Simple") { 
-             detallesNombre.push(item.nombre); 
+        // VALIDACION SEGURA
+        const item = productoSeleccionadoTemp.opciones?.items?.[varianteSeleccionada.value];
+        
+        // Solo procedemos si item existe
+        if (item) {
+            precioUnitarioFinal += item.precio;
+            // Solo agregamos al nombre si no es la opción "Simple" o "Base"
+            if (item.precio > 0 || (item.nombre && item.nombre !== "Simple")) { 
+                 detallesNombre.push(item.nombre); 
+            }
         }
     }
 
     // 2. Procesar Extras
     const extrasSeleccionados = document.querySelectorAll('input[name="extra"]:checked');
     extrasSeleccionados.forEach(chk => {
-        const extra = productoSeleccionadoTemp.opciones.extras[chk.value];
-        precioUnitarioFinal += extra.precio;
-        detallesNombre.push(`+ ${extra.nombre}`);
+        // VALIDACION SEGURA
+        const extra = productoSeleccionadoTemp.opciones?.extras?.[chk.value];
+        
+        if (extra) {
+            precioUnitarioFinal += extra.precio;
+            detallesNombre.push(`+ ${extra.nombre}`);
+        }
     });
 
     // 3. Procesar Cantidad
     const contador = document.getElementById('contador-cantidad');
     if (contador) {
-        cantidad = parseInt(contador.innerText);
+        cantidad = parseInt(contador.innerText) || 1;
     }
 
     // Construir nombre final
@@ -274,8 +303,7 @@ function cerrarModalOpciones() {
 
 function actualizarBadge() {
     const badge = document.getElementById('cart-count');
-    // Sumamos la cantidad de items, no solo el largo del array (para que 1 docena cuente como 12 o como 1 paquete)
-    // Por simplicidad, contamos "lineas" de pedido.
+    // Sumamos la cantidad de items, no solo el largo del array
     badge.innerText = carrito.length;
     
     badge.classList.add('scale-125');
@@ -299,7 +327,6 @@ function abrirCarrito() {
     let total = 0;
 
     carrito.forEach((item, index) => {
-        // CORRECCIÓN IMPORTANTE: Multiplicar precio por cantidad
         const subtotal = item.precio * item.cantidad;
         total += subtotal;
         
